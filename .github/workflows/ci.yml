@@ -11,11 +11,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # DB pour les tests CI
       POSTGRES_DB: gym_management
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-      # IMPORTANT : host = service "postgres" (pas localhost)
       DATABASE_URL: postgresql://postgres:password@postgres:5432/gym_management
       NODE_ENV: test
 
@@ -42,12 +40,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: npm
 
       # ---------- BACKEND ----------
       - name: Install backend dependencies
         working-directory: backend
-        run: npm ci
+        run: npm install
 
       - name: Wait for Postgres (simple)
         run: sleep 20
@@ -71,7 +68,7 @@ jobs:
       # ---------- FRONTEND ----------
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install
 
       - name: Frontend tests (if present)
         working-directory: frontend
