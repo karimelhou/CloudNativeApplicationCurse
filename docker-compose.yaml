@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - front_net
+      - back_net
+
+  postgres:
+    image: postgres:alpine
+    container_name: postgres
+    env_file: .env     # racine: contient POSTGRES_DB/USER/PASSWORD
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - back_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - postgres
+    networks:
+      - back_net
+      - front_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
+    env_file:
+      - ./frontend/.env
+    depends_on:
+      - backend
+    networks:
+      - front_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+networks:
+  front_net:
+  back_net:
+
+volumes:
+  postgres_data:
