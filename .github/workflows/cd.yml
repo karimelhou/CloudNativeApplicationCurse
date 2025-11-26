@@ -6,17 +6,44 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted   # ton runner WSL
+    runs-on: self-hosted   # your WSL runner
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Optionnel : tu peux loguer la version de Docker, juste pour debug
       - name: Docker info
         run: |
           docker version
           docker compose version
+
+      # 🔹 Create root .env for Postgres (used by docker-compose.yaml)
+      - name: Create root .env
+        run: |
+          cat << 'EOF' > .env
+          POSTGRES_DB=gym_management
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=password
+          EOF
+
+      # 🔹 Create backend/.env (used by backend service)
+      - name: Create backend .env
+        run: |
+          mkdir -p backend
+          cat << 'EOF' > backend/.env
+          NODE_ENV=production
+          PORT=3000
+          DATABASE_URL=postgresql://postgres:password@postgres:5432/gym_management
+          FRONTEND_URL=http://localhost
+          EOF
+
+      # 🔹 Create frontend/.env (used by frontend service)
+      - name: Create frontend .env
+        run: |
+          mkdir -p frontend
+          cat << 'EOF' > frontend/.env
+          VITE_API_URL=http://localhost/api
+          EOF
 
       - name: Stop existing stack
         run: docker compose -f docker-compose.yaml down
