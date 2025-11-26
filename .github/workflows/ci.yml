@@ -2,16 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
 
 jobs:
   build-and-test:
-    runs-on:
-      - self-hosted
-      - linux
-      - wsl
+    runs-on: self-hosted
 
     services:
       postgres:
@@ -23,16 +20,16 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres -d gym_management"
-          --health-interval=5s
-          --health-timeout=3s
-          --health-retries=5
+          --health-cmd "pg_isready -U postgres -d gym_management" 
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
 
     env:
       DATABASE_URL: postgresql://postgres:password@localhost:5432/gym_management
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -40,28 +37,15 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install backend dependencies
+      - name: Install backend deps
         working-directory: backend
         run: npm install
 
-      - name: Install frontend dependencies
+      - name: Install frontend deps
         working-directory: frontend
         run: npm install
 
-      - name: Wait for Postgres to be ready
-        run: |
-          for i in {1..20}; do
-            if pg_isready -h localhost -p 5432 -U postgres; then
-              echo "Postgres is ready";
-              exit 0;
-            fi
-            echo "Waiting for Postgres...";
-            sleep 3;
-          done
-          echo "Postgres did not become ready in time";
-          exit 1
-        env:
-          PGPASSWORD: password
+      # ⚠️ ICI : plus de step "Wait for Postgres"
 
       - name: Run Prisma migrations
         working-directory: backend
