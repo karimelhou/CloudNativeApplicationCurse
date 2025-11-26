@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    env:
+      # DB pour les tests CI
+      POSTGRES_DB: gym_management
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      # IMPORTANT : host = service "postgres" (pas localhost)
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/gym_management
+      NODE_ENV: test
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      # ---------- BACKEND ----------
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Wait for Postgres (simple)
+        run: sleep 20
+
+      - name: Run Prisma migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+      - name: Seed database
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run seed
+
+      - name: Backend tests (if present)
+        working-directory: backend
+        run: npm test --if-present
+
+      # ---------- FRONTEND ----------
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend tests (if present)
+        working-directory: frontend
+        run: npm test --if-present
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      # ---------- DOCKER BUILD ----------
+      - name: Build Docker images
+        run: docker compose -f docker-compose.yaml build
