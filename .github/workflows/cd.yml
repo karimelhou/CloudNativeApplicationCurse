@@ -1,0 +1,25 @@
+name: CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted   # ton runner WSL
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Optionnel : tu peux loguer la version de Docker, juste pour debug
+      - name: Docker info
+        run: |
+          docker version
+          docker compose version
+
+      - name: Stop existing stack
+        run: docker compose -f docker-compose.yaml down
+
+      - name: Start updated stack
+        run: docker compose -f docker-compose.yaml up -d --build
