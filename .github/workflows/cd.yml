@@ -17,7 +17,7 @@ jobs:
           docker version
           docker compose version
 
-      # 🔹 Create root .env (Used by both Blue and Green compose files)
+      # 🔹 Create root .env
       - name: Create root .env
         run: |
           cat << 'EOF' > .env
@@ -27,8 +27,6 @@ jobs:
           EOF
 
       # 🔹 Create backend/.env
-      # Note: DATABASE_URL is overridden in docker-compose.blue/green.yml,
-      # but we keep this for local dev or fallback.
       - name: Create backend .env
         run: |
           mkdir -p backend
@@ -40,7 +38,6 @@ jobs:
           EOF
 
       # 🔹 Create frontend/.env
-      # This VITE_API_URL is just for build time; Nginx handles the routing in prod.
       - name: Create frontend .env
         run: |
           mkdir -p frontend
@@ -48,25 +45,35 @@ jobs:
           VITE_API_URL=http://localhost/api
           EOF
 
-      # 🔹 Ensure the shared network exists
-      # The Endpoint and both stacks need this network to talk to each other.
+      # 🔹 Create shared network
       - name: Create shared network if missing
         run: |
           docker network inspect gateway_net >/dev/null 2>&1 || docker network create gateway_net
 
-      # 🔹 Deploy the Blue Stack (Default Active Environment)
-      # We pull and build specifically the Blue composition.
+      # ⚠️ CLEANUP STEP (Fixes "Port 80 already allocated")
+      # This stops Traefik from TP1 and removes any old containers hanging around
+      - name: Cleanup Old Stack
+        run: |
+          # Stop the old compose stack if the file exists
+          if [ -f docker-compose.yaml ]; then
+            docker compose -f docker-compose.yaml down --remove-orphans || true
+          fi
+          
+          # Force stop specific containers that might hog ports
+          docker stop traefik nginx-router || true
+          docker rm traefik nginx-router || true
+
+      # 🔹 Deploy Blue Stack
       - name: Deploy Blue Stack
         run: |
           docker compose -f docker-compose.blue.yml pull
           docker compose -f docker-compose.blue.yml up -d --build
 
-      # 🔹 Deploy the Nginx Endpoint
-      # This is the entry point (port 80) that routes to Blue.
+      # 🔹 Deploy Nginx Endpoint
       - name: Start Nginx Endpoint
         run: |
           docker compose -f docker-compose.endpoint.yml up -d --build
 
-      # 🔹 Clean up unused images (Optional, keeps runner clean)
+      # 🔹 Prune unused images
       - name: Prune Docker System
         run: docker system prune -f
