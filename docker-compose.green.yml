@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  # --- Database Green ---
+  postgres:
+    image: postgres:alpine
+    container_name: postgres-green
+    env_file: .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data_green:/var/lib/postgresql/data
+    networks:
+      - internal_green
+
+  # --- Backend Green ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend-green
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-green:5432/${POSTGRES_DB}
+      - PORT=3000
+    depends_on:
+      - postgres
+    ports:
+      - "3002:3000"  # TP Requirement: Port 3002
+    networks:
+      - internal_green
+      - gateway_net
+
+  # --- Frontend Green ---
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend-green
+    env_file:
+      - ./frontend/.env
+    depends_on:
+      - backend
+    ports:
+      - "8082:80"   # TP Requirement: Port 8082
+    networks:
+      - gateway_net
+
+networks:
+  internal_green:
+  gateway_net:
+    external: true
+
+volumes:
+  postgres_data_green:

@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  # --- Database Blue ---
+  postgres:
+    image: postgres:alpine
+    container_name: postgres-blue
+    env_file: .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data_blue:/var/lib/postgresql/data
+    networks:
+      - internal_blue
+
+  # --- Backend Blue ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend-blue
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-blue:5432/${POSTGRES_DB}
+      - PORT=3000
+    depends_on:
+      - postgres
+    ports:
+      - "3001:3000"  # TP Requirement: Port 3001
+    networks:
+      - internal_blue
+      - gateway_net
+
+  # --- Frontend Blue ---
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend-blue
+    env_file:
+      - ./frontend/.env
+    depends_on:
+      - backend
+    ports:
+      - "8081:80"   # TP Requirement: Port 8081
+    networks:
+      - gateway_net
+
+networks:
+  internal_blue:    # Network inside the Blue stack
+  gateway_net:      # Network to talk to the Nginx Endpoint
+    external: true
+
+volumes:
+  postgres_data_blue:

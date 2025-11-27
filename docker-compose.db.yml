@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:alpine
+    container_name: postgres
+    env_file: .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_net
+
+networks:
+  app_net:
+
+volumes:
+  postgres_data:
